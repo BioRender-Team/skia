@@ -59,6 +59,7 @@ var CanvasKit = {
   MakeGPUCanvasContext: function() {},
   MakeGPUCanvasSurface: function() {},
   MakeGPUTextureSurface: function() {},
+  MakeSVGDOMFromString: function() {},
   MakeRasterDirectSurface: function() {},
   MakeWebGLCanvasSurface: function() {},
   Malloc: function() {},
@@ -514,6 +515,14 @@ var CanvasKit = {
     _makeFromGenerator: function() {},
     _makeShaderCubic: function() {},
     _makeShaderOptions: function() {},
+  },
+
+  SVGDOM: {
+    prototype: {
+      render: function() {},
+      _setContainerSize: function() {},
+      _getContainerSize: function() {},
+    }
   },
 
   ImageFilter: {

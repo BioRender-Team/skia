@@ -22,6 +22,8 @@ declare_args() {
   skia_canvaskit_legacy_draw_vertices_blend_mode = false
   skia_canvaskit_enable_webgpu = false
   skia_canvaskit_enable_webgl = false
+  # Include Skia's SVG DOM (SkSVGDOM) support in CanvasKit. Requires expat.
+  skia_canvaskit_enable_svg = false
 }
 
 # Assert that skia_canvaskit_profile_build implies release mode.
