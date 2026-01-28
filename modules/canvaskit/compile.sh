@@ -83,6 +83,14 @@ if [[ $@ == *viewer* ]]; then
   IS_OFFICIAL_BUILD="false"
 fi
 
+ENABLE_SVG="false"
+if [[ $@ == *enable_svg* ]]; then
+  echo "Including SVG DOM (SkSVGDOM) support"
+  ENABLE_SVG="true"
+  # SkSVGDOM requires expat, and Skia defaults skia_use_expat=false for wasm.
+  USE_EXPAT="true"
+fi
+
 ENABLE_PATHOPS="true"
 if [[ $@ == *no_pathops* ]] ; then
   # This saves about 2kb compressed.
@@ -217,6 +225,7 @@ echo "Compiling"
   skia_use_dawn=${ENABLE_WEBGPU} \
   skia_use_webgl=${ENABLE_WEBGL} \
   skia_use_webgpu=${ENABLE_WEBGPU} \
+  skia_use_system_expat=false \
   skia_use_expat=${USE_EXPAT} \
   skia_use_fontconfig=false \
   skia_use_freetype=true \
@@ -267,6 +276,7 @@ echo "Compiling"
   skia_canvaskit_enable_debugger=${DEBUGGER_ENABLED} \
   skia_canvaskit_enable_paragraph=${ENABLE_PARAGRAPH} \
   skia_canvaskit_enable_bidi=${ENABLE_BIDI} \
+  skia_canvaskit_enable_svg=${ENABLE_SVG} \
   skia_canvaskit_enable_webgl=${ENABLE_WEBGL} \
   skia_canvaskit_enable_webgpu=${ENABLE_WEBGPU}"
 

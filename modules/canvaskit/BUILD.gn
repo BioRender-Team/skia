@@ -95,6 +95,9 @@ action("create_notomono_cpp") {
 
 skia_wasm_lib("canvaskit") {
   deps = [ "../..:skia" ]
+  if (skia_canvaskit_enable_svg) {
+    deps += [ "../../modules/svg:svg" ]
+  }
   if (skia_canvaskit_enable_paragraph) {
     deps += [
       "../../modules/skparagraph:skparagraph",

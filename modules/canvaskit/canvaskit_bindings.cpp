@@ -68,6 +68,10 @@
 #include "src/core/SkResourceCache.h"
 #include "src/image/SkImage_Base.h"
 
+#include "modules/canvaskit/WasmCommon.h"
+#if defined(SK_ENABLE_SVG)
+#include "modules/svg/include/SkSVGDOM.h"
+#endif
 #include <emscripten.h>
 #include <emscripten/bind.h>
 #include <emscripten/html5.h>
@@ -1295,6 +1299,28 @@ EMSCRIPTEN_BINDINGS(Skia) {
             .function("width", optional_override([](SkAnimatedImage& self) -> int32_t {
                           return SkScalarFloorToInt(self.getBounds().width());
                       }));
+
+#if defined(SK_ENABLE_SVG)
+    function("MakeSVGDOMFromString", optional_override([](std::string svg)->sk_sp<SkSVGDOM> {
+        auto data = SkData::MakeWithCopy(svg.data(), svg.size());
+        SkMemoryStream stream(std::move(data));
+        return SkSVGDOM::MakeFromStream(stream);
+    }), allow_raw_pointers());
+
+    class_<SkSVGDOM>("SVGDOM")
+        .smart_ptr<sk_sp<SkSVGDOM>>("sk_sp<SVGDOM>")
+        .function("render", optional_override([](SkSVGDOM& self, SkCanvas* canvas){
+            self.render(canvas);
+        }), allow_raw_pointers())
+        .function("_setContainerSize", optional_override([](SkSVGDOM& self, float w, float h){
+            self.setContainerSize(SkSize::Make(w, h));
+        }))
+        .function("_getContainerSize", optional_override([](SkSVGDOM& self){
+            const SkSize& s = self.containerSize();
+            const float out[] = { s.width(), s.height() };
+            return MakeTypedArray(2, out);
+        }));
+#endif // SK_ENABLE_SVG
 
     class_<SkBlender>("Blender")
             .smart_ptr<sk_sp<SkBlender>>("sk_sp<Blender>")
