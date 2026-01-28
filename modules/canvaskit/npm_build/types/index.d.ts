@@ -2438,6 +2438,21 @@ export interface Path extends EmbindObject<"Path"> {
     copy(): Path;
 
     /**
+     * Performs the boolean operation between this path and `otherPath` and replaces this path
+     * with the result. Returns `this` on success, otherwise null.
+     *
+     * Requires CanvasKit to be built with PathOps support.
+     */
+    op(otherPath: Path, op: PathOp): Path | null;
+
+    /**
+     * Simplifies this path in-place. Returns `this` on success, otherwise null.
+     *
+     * Requires CanvasKit to be built with PathOps support.
+     */
+    simplify(): Path | null;
+
+    /**
      * Returns the number of points in this path. Initially zero.
      */
     countPoints(): number;

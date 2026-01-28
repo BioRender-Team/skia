@@ -557,6 +557,25 @@ SkPathOrNull MakeSimplified(const SkPath& path) {
     return emscripten::val::null();
 }
 
+// In-place versions of PathOps for legacy JS APIs (pathops.js).
+// These mutate the existing SkPath so code using `path.op(...)` / `path.simplify(...)` continues
+// to work without requiring callers to manage ownership of a returned path.
+bool ApplyPathOp(SkPath& self, const SkPath& other, SkPathOp op) {
+    if (auto result = Op(self, other, op)) {
+        self = result.value();
+        return true;
+    }
+    return false;
+}
+
+bool ApplySimplify(SkPath& self) {
+    if (auto result = Simplify(self)) {
+        self = result.value();
+        return true;
+    }
+    return false;
+}
+
 SkPathOrNull MakePathFromOp(const SkPath& pathOne, const SkPath& pathTwo, SkPathOp op) {
     if (auto result = Op(pathOne, pathTwo, op)) {
         return emscripten::val(result.value());
@@ -2375,12 +2394,15 @@ EMSCRIPTEN_BINDINGS(Skia) {
 #endif
 #ifdef CK_INCLUDE_PATHOPS
             .function("makeAsWinding", &MakeAsWinding)
+            // Legacy PathOps APIs used by modules/canvaskit/pathops.js.
+            .function("_op", &ApplyPathOp)
             .function("_makeCombined",
                       optional_override([](const SkPath& self,
                                            const SkPath& other,
                                            SkPathOp op) -> SkPathOrNull {
                           return MakePathFromOp(self, other, op);
                       }))
+            .function("_simplify", &ApplySimplify)
             .function("_makeSimplified", &MakeSimplified)
 #endif
             ;
