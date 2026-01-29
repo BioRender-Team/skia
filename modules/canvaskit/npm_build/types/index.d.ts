@@ -2438,6 +2438,12 @@ export interface Path extends EmbindObject<"Path"> {
     copy(): Path;
 
     /**
+     * Convert this path into its stroked outline in-place.
+     * Returns true on success, false otherwise.
+     */
+    stroke(opts?: StrokeOpts): boolean;
+
+    /**
      * Performs the boolean operation between this path and `otherPath` and replaces this path
      * with the result. Returns `this` on success, otherwise null.
      *

@@ -829,6 +829,25 @@ SkPathOrNull MakeStroked(const SkPath& self, StrokeOpts opts) {
     return emscripten::val::null();
 }
 
+// In-place version for legacy JS API: Path.stroke(opts) -> bool.
+// Mutates the path into a stroked outline path.
+bool ApplyStroke(SkPath& self, StrokeOpts opts) {
+    SkPaint p;
+    p.setStyle(SkPaint::kStroke_Style);
+    p.setStrokeCap(opts.cap);
+    p.setStrokeJoin(opts.join);
+    p.setStrokeWidth(opts.width);
+    p.setStrokeMiter(opts.miter_limit);
+
+    SkMatrix scale = SkMatrix::Scale(opts.precision, opts.precision);
+    SkPathBuilder pb;
+    if (skpathutils::FillPathWithPaint(self, p, &pb, nullptr, scale)) {
+        self = pb.detach();
+        return true;
+    }
+    return false;
+}
+
 // This function is private, we call it in interface.js
 void computeTonalColors(WASMPointerF32 cPtrAmbi, WASMPointerF32 cPtrSpot) {
     // private methods accepting colors take pointers to floats already copied into wasm memory.
@@ -2369,6 +2388,7 @@ EMSCRIPTEN_BINDINGS(Skia) {
             .function("makeDashed", &MakeDashed)
             .function("_makeTrimmed", &MakeTrimmed)
             .function("_makeStroked", &MakeStroked)
+            .function("_stroke", &ApplyStroke)
 
             // Exporting
             .function("toSVGString", &ToSVGString)

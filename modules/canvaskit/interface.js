@@ -358,6 +358,19 @@ CanvasKit.onRuntimeInitialized = function() {
     return this._makeStroked(opts);
   };
 
+  // Legacy in-place stroking. Mutates this path into a stroked outline path.
+  // Returns true on success, false otherwise.
+  CanvasKit.Path.prototype.stroke = function(opts) {
+    // Fill out any missing values with the default values.
+    opts = opts || {};
+    opts['width'] = opts['width'] || 1;
+    opts['miter_limit'] = opts['miter_limit'] || 4;
+    opts['cap'] = opts['cap'] || CanvasKit.StrokeCap.Butt;
+    opts['join'] = opts['join'] || CanvasKit.StrokeJoin.Miter;
+    opts['precision'] = opts['precision'] || 1;
+    return this._stroke(opts);
+  };
+
   // TODO(kjlubick) Change this to take a 3x3 or 4x4 matrix (optionally malloc'd)
   CanvasKit["PathBuilder"].prototype["transform"] = function() {
     // Takes 1 or 9 args
