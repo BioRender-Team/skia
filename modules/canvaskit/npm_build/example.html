@@ -51,13 +51,13 @@
 <h2 id=title3> Interactive drawPatch</h2>
 <canvas id=interdrawpatch width=512 height=512></canvas>
 
-<script type="text/javascript" src="/build/canvaskit.js"></script>
+<script type="text/javascript" src="/out/canvaskit_wasm/canvaskit.js"></script>
 
 <script type="text/javascript" charset="utf-8" async>
   let CanvasKit = null;
   const cdn = 'https://cdn.skia.org/misc/';
 
-  const ckLoaded = CanvasKitInit({locateFile: (file) => '/build/'+file});
+  const ckLoaded = CanvasKitInit({locateFile: (file) => '/out/canvaskit_wasm/'+file});
 
   const loadRoboto = fetch(cdn + 'Roboto-Regular.ttf').then((response) => response.arrayBuffer());
   const loadNotoSerif = fetch(cdn + 'NotoSerif-Regular.ttf').then((response) => response.arrayBuffer());
@@ -319,6 +319,7 @@
     }
 
     function drawFrame(canvas) {
+      canvas.clear(CanvasKit.WHITE);
       const paint = new CanvasKit.Paint();
       paint.setStrokeWidth(1.0);
       paint.setAntiAlias(true);
@@ -403,11 +404,14 @@
   }
 
   function preventScrolling(canvas) {
+    // Prefer CSS touch-action over preventing default in JS. This avoids Chrome's
+    // "non-passive touchmove listener" warning and improves responsiveness.
+    canvas.style.touchAction = 'none';
+
+    // Keep a passive listener only to stop propagation (optional).
     canvas.addEventListener('touchmove', (e) => {
-      // Prevents touch events in the canvas from scrolling the canvas.
-      e.preventDefault();
       e.stopPropagation();
-    });
+    }, { passive: true });
   }
 
   function InkExample(CanvasKit, gpu) {
@@ -512,7 +516,8 @@
                           realCanvas._img = bitmap;
                         });
 
-    let realFontLoaded = new FontFace('Bungee', 'url(/tests/assets/Bungee-Regular.ttf)', {
+    // Served from /modules/canvaskit/npm_build/, so use a relative path into canvaskit test assets.
+    let realFontLoaded = new FontFace('Bungee', 'url(../tests/assets/Bungee-Regular.ttf)', {
       'family': 'Bungee',
       'style': 'normal',
       'weight': '400',
@@ -520,7 +525,7 @@
       document.fonts.add(font);
     });
 
-    let skFontLoaded = fetch('/tests/assets/Bungee-Regular.ttf').then(
+    let skFontLoaded = fetch('../tests/assets/Bungee-Regular.ttf').then(
                              (response) => response.arrayBuffer()).then(
                              (buffer) => {
                                 // loadFont is synchronous
@@ -1103,12 +1108,15 @@
       return;
     }
     const canvas = surface.getCanvas();
+    canvas.clear(CanvasKit.WHITE);
     const paint = new CanvasKit.Paint();
+    paint.setColor(CanvasKit.BLACK);
     paint.setStyle(CanvasKit.PaintStyle.Stroke);
     paint.setAntiAlias(true);
 
     const font = new CanvasKit.Font(CanvasKit.Typeface.GetDefault(), 24);
     const fontPaint = new CanvasKit.Paint();
+    fontPaint.setColor(CanvasKit.BLACK);
     fontPaint.setStyle(CanvasKit.PaintStyle.Fill);
     fontPaint.setAntiAlias(true);
 
@@ -1144,6 +1152,8 @@
     const canvas = surface.getCanvas();
     const paint = new CanvasKit.Paint();
     const font = new CanvasKit.Font(CanvasKit.Typeface.GetDefault(), 16);
+    canvas.clear(CanvasKit.WHITE);
+    paint.setColor(CanvasKit.BLACK);
     paint.setAntiAlias(true);
 
     let glyphs = [];
@@ -1237,14 +1247,21 @@
     }
 
     const img = CanvasKit.MakeImageFromEncoded(imgData);
+    if (!img) {
+      console.error('Could not decode test image for atlas');
+      return;
+    }
     const paint = new CanvasKit.Paint();
     paint.setColor(CanvasKit.Color(0, 0, 0, 0.8));
 
     // Allocate space for 2 rectangles.
     const srcs = CanvasKit.Malloc(Float32Array, 8);
+    // Use the decoded image dimensions; the CDN test image size can change.
+    const iw = img.width();
+    const ih = img.height();
     srcs.toTypedArray().set([
-      0, 0, 250, 250, // LTRB
-      250, 0, 500, 250
+      0, 0, iw/2, ih,      // LTRB left half
+      iw/2, 0, iw,   ih     // LTRB right half
     ]);
 
     // Allocate space for 2 RSXForms

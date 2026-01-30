@@ -38,6 +38,11 @@ mkdir -p $BUILD_DIR
 # sometimes the .a files keep old symbols around - cleaning them out makes sure
 # we get a fresh build.
 rm -f $BUILD_DIR/*.a
+if [[ ${ENABLE_WEBGPU} == "true" ]]; then
+  # Dawn is built via CMake into a fixed subdir. If the toolchain changes (e.g. switching between
+  # host and wasm), CMake requires its cache to be deleted.
+  rm -rf "$BUILD_DIR/cmake_dawn"
+fi
 
 ENABLE_GANESH="true"
 ENABLE_GRAPHITE="false"
@@ -49,8 +54,10 @@ if [[ $@ == *cpu* ]]; then
 elif [[ $@ == *webgpu* ]]; then
   echo "Using WebGPU instead of WebGL"
   ENABLE_WEBGPU="true"
+  # NOTE: In this branch, GN asserts `skia_use_dawn` implies `skia_enable_graphite` (Dawn is
+  # Graphite-only). Keep Ganesh enabled for existing CanvasKit GPU bindings, but also enable
+  # Graphite to satisfy the Dawn requirement.
   ENABLE_GRAPHITE="true"
-  ENABLE_GANESH="false"
 else
   ENABLE_WEBGL="true"
 fi
@@ -209,6 +216,8 @@ fi # no_codecs
 
 ./bin/fetch-ninja
 NINJA=third_party/ninja/ninja
+# Some build steps (e.g. Dawn's CMake build) expect `ninja` to be on PATH.
+export PATH="$(pwd)/third_party/ninja:${PATH}"
 
 echo "Compiling"
 

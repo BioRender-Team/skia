@@ -12,10 +12,12 @@
         // This allows native code to access this device by calling
         // `emscripten_webgpu_get_device().`
         CanvasKit.preinitializedWebGPUDevice = device;
-        var context = this._MakeGrContext();
-        context._device = device;
-
-        return context;
+        var devCtx = this._MakeWebGPUDeviceContext();
+        if (!devCtx) {
+          return null;
+        }
+        devCtx._device = device;
+        return devCtx;
       };
 
       CanvasKit.MakeGPUCanvasContext = function(devCtx, canvas, opts) {
@@ -46,6 +48,8 @@
             }
             callback(surface.getCanvas());
             surface.flush();
+            // WebGPU (Graphite) requires submitting the recorder to present.
+            canvasCtx._deviceContext && canvasCtx._deviceContext.submit && canvasCtx._deviceContext.submit();
             surface.dispose();
           });
         };
@@ -64,6 +68,8 @@
                                                  context.getCurrentTexture(),
                                                  canvasCtx._textureFormat,
                                                  width, height, colorSpace);
+        // Keep a reference so helpers can submit after flushing.
+        surface._deviceContext = canvasCtx._deviceContext;
         surface._canvasContext = canvasCtx;
         return surface;
       };
@@ -89,51 +95,53 @@
               colorSpace);
       };
 
-      CanvasKit.Surface.prototype.assignCurrentSwapChainTexture = function() {
-        // This feature is only supported for a Surface that was created via MakeGPUCanvasSurface.
-        if (!this._canvasContext) {
-          console.log('Surface is not bound to a canvas context');
-          return false;
-        }
-        let ctx = this._canvasContext._inner;
-        return this._replaceBackendTexture(
-            CanvasKit.JsValStore.add(ctx.getCurrentTexture()),
-            CanvasKit.WebGPU.TextureFormat.indexOf(this._canvasContext._textureFormat),
-            ctx.canvas.width, ctx.canvas.height);
-      };
-
       CanvasKit.Surface.prototype.requestAnimationFrame = function(callback, dirtyRect) {
-        if (!this.reportBackendTypeIsGPU()) {
-          return this._requestAnimationFrameInternal(callback, dirtyRect);
-        }
-
         return requestAnimationFrame(function() {
-          // Replace the render target of the Surface with the current swapchain surface if this is
-          // bound to a canvas context.
-          if (this._canvasContext && !this.assignCurrentSwapChainTexture()) {
-            console.log('failed to replace GPU backend texture');
+          // For WebGPU canvases, the swapchain/current texture is per-frame. A Surface created
+          // from a previous `getCurrentTexture()` cannot be reused on subsequent frames.
+          // Re-wrap the current texture each frame and draw into that temporary Surface.
+          if (this._canvasContext) {
+            const frameSurface = CanvasKit.MakeGPUCanvasSurface(this._canvasContext);
+            if (!frameSurface) {
+              console.error('Failed to initialize Surface for current canvas swapchain texture');
+              return;
+            }
+            callback(frameSurface.getCanvas());
+            frameSurface.flush(dirtyRect);
+            frameSurface._deviceContext && frameSurface._deviceContext.submit &&
+                frameSurface._deviceContext.submit();
+            frameSurface.dispose();
             return;
           }
+
           callback(this.getCanvas());
           this.flush(dirtyRect);
+          this._deviceContext && this._deviceContext.submit && this._deviceContext.submit();
         }.bind(this));
       };
 
       CanvasKit.Surface.prototype.drawOnce = function(callback, dirtyRect) {
-        if (!this.reportBackendTypeIsGPU()) {
-          this._drawOnceInternal(callback, dirtyRect);
-          return;
-        }
-
         requestAnimationFrame(function() {
-          // Replace the render target of the Surface with the current swapchain surface if this is
-          // bound to a canvas context.
-          if (this._canvasContext && !this.assignCurrentSwapChainTexture()) {
-            console.log('failed to replace GPU backend texture');
+          // See requestAnimationFrame(): WebGPU swapchain textures are per-frame.
+          if (this._canvasContext) {
+            const frameSurface = CanvasKit.MakeGPUCanvasSurface(this._canvasContext);
+            if (!frameSurface) {
+              console.error('Failed to initialize Surface for current canvas swapchain texture');
+              this.dispose();
+              return;
+            }
+            callback(frameSurface.getCanvas());
+            frameSurface.flush(dirtyRect);
+            frameSurface._deviceContext && frameSurface._deviceContext.submit &&
+                frameSurface._deviceContext.submit();
+            frameSurface.dispose();
+            this.dispose();
             return;
           }
+
           callback(this.getCanvas());
           this.flush(dirtyRect);
+          this._deviceContext && this._deviceContext.submit && this._deviceContext.submit();
           this.dispose();
         }.bind(this));
       };

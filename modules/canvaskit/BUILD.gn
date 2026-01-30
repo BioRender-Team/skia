@@ -334,6 +334,12 @@ skia_wasm_lib("canvaskit") {
     ]
   }
 
+  exported_runtime_methods = "HEAP32,HEAPU8,HEAPU16,HEAPU32,HEAPF32"
+  if (skia_canvaskit_enable_webgpu) {
+    # Needed for WebGPU JS<->WASM interop (library_html5_webgpu.js).
+    exported_runtime_methods += ",WebGPU,JsValStore"
+  }
+
   ldflags += [
     "--pre-js",
     rebase_path("postamble.js"),
@@ -350,7 +356,7 @@ skia_wasm_lib("canvaskit") {
     "-sINITIAL_MEMORY=128MB",
     "-sWASM",
     "-sSTRICT=1",
-    "-sEXPORTED_RUNTIME_METHODS=HEAP32,HEAPU8,HEAPU16,HEAPU32,HEAPF32",
+    "-sEXPORTED_RUNTIME_METHODS=" + exported_runtime_methods,
 
     # INCOMING_MODULE_JS_API is set to empty by default.
     # https://github.com/emscripten-core/emscripten/blob/8dc91db45bf96c174531006839472a3924d105aa/src/settings.js#L1204
@@ -398,6 +404,9 @@ skia_wasm_lib("canvaskit") {
         "CK_ENABLE_WEBGL",
       ]
     }
+  }
+  if (skia_canvaskit_enable_webgpu) {
+    defines += [ "CK_ENABLE_WEBGPU" ]
   }
 
   if (skia_canvaskit_enable_pathops) {

@@ -67,6 +67,16 @@ def main():
     sys.exit(1)
 
   target_os, target_cpu = get_cmake_os_cpu(args.target_os, args.target_cpu)
+  if target_os == "wasm":
+    # Use Emscripten's CMake toolchain so the compiler tests and flags are correct.
+    target_os = "Emscripten"
+
+  emcmake_exe = None
+  if target_os == "Emscripten":
+    emcmake_exe = shutil.which("emcmake")
+    if not emcmake_exe:
+      print("Error: emcmake not found in PATH.")
+      sys.exit(1)
 
   output_path = args.output_path
   gen_dir = args.gen_dir
@@ -81,7 +91,9 @@ def main():
   build_dir = args.build_dir
 
   configure_cmd = [
-      cmake_exe,
+      # On macOS, CMake may attempt to inject `-arch` flags even when using emcc. Using emcmake
+      # ensures the correct toolchain setup and prevents Apple-specific flags from being applied.
+      *( [emcmake_exe, cmake_exe] if emcmake_exe else [cmake_exe] ),
       "-S",
       dawn_dir,
       "-B",
@@ -90,8 +102,6 @@ def main():
       "Ninja",
       f"-DCMAKE_MAKE_PROGRAM={ninja_exe}",
       f"--install-prefix={os.path.abspath(gen_dir)}",
-      f"-DCMAKE_SYSTEM_NAME={target_os}",
-      f"-DCMAKE_SYSTEM_PROCESSOR={target_cpu}",
       "-DDAWN_BUILD_MONOLITHIC_LIBRARY=OFF",
       f"-DCMAKE_BUILD_TYPE={args.build_type}",
       # Explicitly set the C++ standard to avoid issues with CMake's feature
@@ -108,7 +118,17 @@ def main():
       f"-DDAWN_ENABLE_METAL={gn_bool_to_cmake(args.dawn_enable_metal)}",
       f"-DDAWN_ENABLE_VULKAN={gn_bool_to_cmake(args.dawn_enable_vulkan)}",
   ]
+  if target_os != "Emscripten":
+    configure_cmd += [
+        f"-DCMAKE_SYSTEM_NAME={target_os}",
+        f"-DCMAKE_SYSTEM_PROCESSOR={target_cpu}",
+    ]
   configure_cmd += get_third_party_locations()
+
+  if target_os == "Emscripten":
+    # Avoid Apple-specific flag injection (e.g. `-arch arm64`).
+    configure_cmd.append("-DCMAKE_OSX_ARCHITECTURES:STRING=")
+    configure_cmd.append("-DCMAKE_OSX_SYSROOT:STRING=")
 
   if args.enable_rtti:
     configure_cmd.append("-DDAWN_ENABLE_RTTI=ON")
@@ -147,8 +167,9 @@ def main():
     configure_cmd.append(f"-DANDROID_ABI={target_cpu}")
     configure_cmd.append(f"-DANDROID_PLATFORM={args.android_platform}")
   else:
-    configure_cmd.append(f"-DCMAKE_C_COMPILER={args.cc.replace(os.sep, '/')}")
-    configure_cmd.append(f"-DCMAKE_CXX_COMPILER={args.cxx.replace(os.sep, '/')}")
+    if target_os != "Emscripten":
+      configure_cmd.append(f"-DCMAKE_C_COMPILER={args.cc.replace(os.sep, '/')}")
+      configure_cmd.append(f"-DCMAKE_CXX_COMPILER={args.cxx.replace(os.sep, '/')}")
 
   if target_os == "Darwin" or target_os == "iOS":
     configure_cmd.append(f"-DCMAKE_OSX_ARCHITECTURES={target_cpu}")

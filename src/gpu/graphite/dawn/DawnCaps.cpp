@@ -649,9 +649,14 @@ void DawnCaps::initFormatTable(const wgpu::Device& device) {
     {
         info = &fFormatTable[GetFormatIndex(wgpu::TextureFormat::R8Unorm)];
         info->fFlags = FormatInfo::kAllFlags;
+#if defined(WGPUFeatureName_TextureFormatsTier1)
         if (!device.HasFeature(wgpu::FeatureName::TextureFormatsTier1)) {
             info->fFlags &= ~FormatInfo::kStorage_Flag;
         }
+#else
+        // Older WebGPU headers don't expose the TextureFormatsTier1 feature. Be conservative.
+        info->fFlags &= ~FormatInfo::kStorage_Flag;
+#endif
         info->fColorTypeInfoCount = 3;
         info->fColorTypeInfos = std::make_unique<ColorTypeInfo[]>(info->fColorTypeInfoCount);
         int ctIdx = 0;
