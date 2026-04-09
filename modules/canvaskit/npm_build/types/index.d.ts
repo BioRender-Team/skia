@@ -3290,6 +3290,7 @@ export interface TextShadow {
 
 export interface TextStyle {
     backgroundColor?: InputColor;
+    baselineShift?: number;
     color?: InputColor;
     decoration?: number;
     decorationColor?: InputColor;
