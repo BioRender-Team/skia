@@ -143,6 +143,9 @@
       s['decorationThickness'] = s['decorationThickness'] || 0;
       s['decorationStyle'] = s['decorationStyle'] || CanvasKit.DecorationStyle.Solid;
       s['textBaseline'] = s['textBaseline'] || CanvasKit.TextBaseline.Alphabetic;
+      if (s['baselineShift'] == null) {
+        s['baselineShift'] = 0;
+      }
       if (s['fontSize'] == null) {
         s['fontSize'] = -1
       }

@@ -70,6 +70,7 @@ struct SimpleTextStyle {
     WASMPointerF32 decorationColorPtr;
     para::TextDecorationStyle decorationStyle;
     para::TextBaseline textBaseline;
+    SkScalar baselineShift;
     SkScalar fontSize;
     SkScalar letterSpacing;
     SkScalar wordSpacing;
@@ -204,6 +205,9 @@ para::TextStyle toTextStyle(const SimpleTextStyle& s) {
     }
 
     ts.setTextBaseline(s.textBaseline);
+    if (s.baselineShift != 0) {
+        ts.setBaselineShift(s.baselineShift);
+    }
 
     SkFontStyle fs(s.fontStyle.weight, s.fontStyle.width, s.fontStyle.slant);
     ts.setFontStyle(fs);
@@ -829,6 +833,7 @@ EMSCRIPTEN_BINDINGS(Paragraph) {
         .field("fontSize",              &SimpleTextStyle::fontSize)
         .field("letterSpacing",         &SimpleTextStyle::letterSpacing)
         .field("wordSpacing",           &SimpleTextStyle::wordSpacing)
+        .field("baselineShift",         &SimpleTextStyle::baselineShift)
         .field("heightMultiplier",      &SimpleTextStyle::heightMultiplier)
         .field("halfLeading",           &SimpleTextStyle::halfLeading)
         .field("_localePtr",            &SimpleTextStyle::localePtr)

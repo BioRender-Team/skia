@@ -823,6 +823,51 @@ describe('Paragraph Behavior', function() {
         expect(paraStyleOverride.applyRoundingHack).toEqual(false);
     });
 
+    it('supports baselineShift on TextStyle', () => {
+        if (!CanvasKit.Paragraph) {
+            console.warn('Skipping test because not compiled with paragraph');
+            return;
+        }
+
+        const fontMgr = CanvasKit.FontMgr.FromData(robotoFontBuffer);
+
+        const makeParagraph = (baselineShift) => {
+            const paraStyle = new CanvasKit.ParagraphStyle({
+                textStyle: {
+                    fontFamilies: ['Roboto'],
+                    fontSize: 20,
+                },
+            });
+            const builder = CanvasKit.ParagraphBuilder.Make(paraStyle, fontMgr);
+            builder.pushStyle(new CanvasKit.TextStyle({
+                fontFamilies: ['Roboto'],
+                fontSize: 20,
+                baselineShift,
+            }));
+            builder.addText('Shift');
+            builder.pop();
+
+            const paragraph = builder.build();
+            paragraph.layout(200);
+            return { builder, paragraph };
+        };
+
+        const normal = makeParagraph(0);
+        const shifted = makeParagraph(6);
+        const normalMetrics = normal.paragraph.getLineMetricsAt(0);
+        const shiftedMetrics = shifted.paragraph.getLineMetricsAt(0);
+
+        expect(shiftedMetrics.ascent).toBeCloseTo(normalMetrics.ascent + 6, 3);
+        expect(shiftedMetrics.descent).toBeCloseTo(normalMetrics.descent + 6, 3);
+        expect(shiftedMetrics.height).toBeCloseTo(normalMetrics.height, 3);
+
+        normal.paragraph.delete();
+        shifted.paragraph.delete();
+        normal.builder.delete();
+        shifted.builder.delete();
+        fontMgr.delete();
+    });
+
     gm('paragraph_font_provider', (canvas) => {
         if (!CanvasKit.Paragraph) {
             console.warn('Skipping test because not compiled with paragraph');

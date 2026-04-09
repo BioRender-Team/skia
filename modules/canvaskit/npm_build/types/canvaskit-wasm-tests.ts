@@ -597,6 +597,7 @@ function paragraphBuilderTests(CK: CanvasKit, fontMgr?: FontMgr, paint?: Paint) 
     });
     const blueText = new CK.TextStyle({ // $ExpectType TextStyle
         backgroundColor: CK.Color(234, 208, 232), // light pink
+        baselineShift: 6,
         color: CK.Color(48, 37, 199),
         fontFamilies: ['Noto Serif'],
         decoration: CK.LineThroughDecoration,
