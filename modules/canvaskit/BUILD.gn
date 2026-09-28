@@ -350,6 +350,7 @@ skia_wasm_lib("canvaskit") {
     "-sMODULARIZE",
     "-sNO_EXIT_RUNTIME=1",
     "-sINITIAL_MEMORY=128MB",
+    "-sMAXIMUM_MEMORY=4GB",
     "-sWASM",
     "-sSTRICT=1",
     "-sEXPORTED_RUNTIME_METHODS=HEAP32,HEAPU8,HEAPU16,HEAPU32,HEAPF32",
