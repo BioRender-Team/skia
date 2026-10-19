@@ -173,7 +173,9 @@ sk_sp<DawnBuffer> DawnBuffer::Make(const DawnSharedContext* sharedContext,
 
     void* mappedAtCreationPtr = nullptr;
     if (desc.mappedAtCreation) {
-        mappedAtCreationPtr = buffer.GetMappedRange();
+        // Emscripten's WebGPU bindings unsigned-shift the size argument before testing the
+        // WGPU_WHOLE_MAP_SIZE sentinel, so the default size never maps the whole buffer.
+        mappedAtCreationPtr = buffer.GetMappedRange(0, size);
         SkASSERT(mappedAtCreationPtr);
     }
 
@@ -289,11 +291,11 @@ void DawnBuffer::mapCallback(StatusT status, MessageT message) {
 
     if (is_map_succeeded(status)) {
         if (this->fBuffer.GetUsage() & wgpu::BufferUsage::MapWrite) {
-            this->fMapPtr = this->fBuffer.GetMappedRange();
+            this->fMapPtr = this->fBuffer.GetMappedRange(0, this->size());
         } else {
             // If buffer is only created with MapRead usage, Dawn only allows returning
             // constant pointer. We need to use const_cast as a workaround here.
-            this->fMapPtr = const_cast<void*>(this->fBuffer.GetConstMappedRange());
+            this->fMapPtr = const_cast<void*>(this->fBuffer.GetConstMappedRange(0, this->size()));
         }
     } else {
         log_map_error(status, message);

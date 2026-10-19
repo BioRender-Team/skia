@@ -114,6 +114,8 @@
 #include "include/gpu/graphite/BackendTexture.h"
 #include "include/gpu/graphite/Context.h"
 #include "include/gpu/graphite/ContextOptions.h"
+#include "include/gpu/graphite/Image.h"
+#include "include/gpu/graphite/ImageProvider.h"
 #include "include/gpu/graphite/Recorder.h"
 #include "include/gpu/graphite/Surface.h"
 #include "include/gpu/graphite/dawn/DawnBackendContext.h"
@@ -409,6 +411,16 @@ private:
     std::unique_ptr<skgpu::graphite::Recorder> fRecorder;
 };
 
+class RasterImageProvider : public skgpu::graphite::ImageProvider {
+public:
+    sk_sp<SkImage> findOrCreate(skgpu::graphite::Recorder* recorder,
+                                const SkImage* image,
+                                SkImage::RequiredProperties props) override {
+        // Graphite drops draws of raster images unless the client uploads them.
+        return SkImages::TextureFromImage(recorder, image, props);
+    }
+};
+
 WebGPUDeviceContext* MakeWebGPUDeviceContext() {
     skgpu::graphite::DawnBackendContext backendContext;
     backendContext.fDevice = wgpu::Device::Acquire(emscripten_webgpu_get_device());
@@ -426,7 +438,9 @@ WebGPUDeviceContext* MakeWebGPUDeviceContext() {
     if (!ctx) {
         return nullptr;
     }
-    std::unique_ptr<skgpu::graphite::Recorder> recorder = ctx->makeRecorder();
+    skgpu::graphite::RecorderOptions recorderOptions;
+    recorderOptions.fImageProvider = sk_make_sp<RasterImageProvider>();
+    std::unique_ptr<skgpu::graphite::Recorder> recorder = ctx->makeRecorder(recorderOptions);
     if (!recorder) {
         return nullptr;
     }
