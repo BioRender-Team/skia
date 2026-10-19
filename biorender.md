@@ -1,7 +1,7 @@
 # Build CanvasKit with SVGDOM
 
 ## Prereqs
-- Use a recent Skia revision (we currently base on **Chrome m145**).
+- Use a recent Skia revision (we currently base on **Chrome m155**).
 - Apply the SVGDOM-related changes (CanvasKit bindings + build flags).
 
 ## Build
