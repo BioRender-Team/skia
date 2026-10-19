@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<meta charset="utf-8" />
+<title>CanvasKit WebGPU smoke test</title>
+<style>
+  body { font-family: sans-serif; margin: 24px; color: #222; }
+  canvas { border: 1px solid #ccc; display: block; margin-top: 12px; }
+  #status { white-space: pre-wrap; }
+  .fail { color: #a40000; }
+</style>
+<p id="status">Loading CanvasKit…</p>
+<canvas id="gpu" width="800" height="220"></canvas>
+<script src="/out/canvaskit_wasm_webgpu/canvaskit.js"></script>
+<script>
+const statusEl = document.getElementById('status');
+const failures = [];
+
+function fail(message) {
+  failures.push(message);
+  console.error(message);
+}
+
+// 16x16 blue/orange checkerboard.
+const PNG_BASE64 =
+    'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAJ0lEQVR42mOQy7vzHxl/6JFDwYTkGYaBAaRqQJcfDgaMpoPRdADEAJwtgB9CQr0rAAAAAElFTkSuQmCC';
+
+const SVG_ICON = `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="28" fill="#7c3aed"/>
+  <path d="M32 12 L44 36 L32 30 L20 36 Z" fill="#ffffff"/>
+  <rect x="28" y="34" width="8" height="16" fill="#ffffff"/>
+</svg>`;
+
+function cString(ck, str) {
+  const ptr = ck._malloc(str.length + 1);
+  for (let i = 0; i < str.length; i++) {
+    ck.HEAPU8[ptr + i] = str.charCodeAt(i);
+  }
+  ck.HEAPU8[ptr + str.length] = 0;
+  return ptr;
+}
+
+function draw(ck, canvas) {
+  canvas.clear(ck.WHITE);
+  const label = new ck.Paint();
+  label.setColor(ck.Color(40, 40, 40, 1));
+  label.setAntiAlias(true);
+  const face = ck.Typeface.GetDefault();
+  if (!face) {
+    fail('Typeface.GetDefault() returned null');
+  }
+  const font = face ? new ck.Font(face, 16) : null;
+
+  function caption(text, x) {
+    if (font) {
+      canvas.drawText(text, x, 22, label, font);
+    }
+  }
+
+  caption('Shapes', 16);
+  const fill = new ck.Paint();
+  fill.setAntiAlias(true);
+  fill.setStyle(ck.PaintStyle.Fill);
+  fill.setColor(ck.Color(220, 60, 50, 1));
+  canvas.drawRect(ck.LTRBRect(16, 40, 70, 94), fill);
+  fill.setColor(ck.Color(30, 110, 220, 1));
+  canvas.drawCircle(112, 67, 27, fill);
+
+  const stroke = new ck.Paint();
+  stroke.setAntiAlias(true);
+  stroke.setStyle(ck.PaintStyle.Stroke);
+  stroke.setStrokeWidth(4);
+  stroke.setColor(ck.Color(20, 140, 70, 1));
+  const path = new ck.PathBuilder()
+      .moveTo(150, 96)
+      .lineTo(190, 40)
+      .lineTo(190, 96)
+      .close()
+      .snapshot();
+  canvas.drawPath(path, stroke);
+  path.delete();
+  fill.delete();
+  stroke.delete();
+
+  caption('Image', 220);
+  const png = Uint8Array.from(atob(PNG_BASE64), c => c.charCodeAt(0));
+  const image = ck.MakeImageFromEncoded(png);
+  if (!image) {
+    fail('MakeImageFromEncoded returned null');
+  } else {
+    canvas.drawImageRect(image, ck.LTRBRect(0, 0, 16, 16), ck.LTRBRect(220, 40, 300, 120), null);
+    image.delete();
+  }
+
+  caption('SVG icon', 340);
+  if (!ck.MakeSVGDOMFromString) {
+    fail('MakeSVGDOMFromString is missing');
+  } else {
+    const dom = ck.MakeSVGDOMFromString(SVG_ICON);
+    if (!dom) {
+      fail('MakeSVGDOMFromString returned null');
+    } else {
+      dom._setContainerSize(80, 80);
+      canvas.save();
+      canvas.translate(340, 40);
+      dom.render(canvas);
+      canvas.restore();
+      dom.delete();
+    }
+  }
+
+  caption('Text', 500);
+  if (font) {
+    canvas.drawText('Noto Mono', 500, 70, label, font);
+  }
+  if (face && ck.ParagraphBuilder) {
+    const provider = ck.TypefaceFontProvider.Make();
+    const familyPtr = cString(ck, 'Noto Mono');
+    provider._registerFont(face, familyPtr);
+    ck._free(familyPtr);
+    const style = new ck.ParagraphStyle({
+      textStyle: {fontFamilies: ['Noto Mono'], fontSize: 18, color: ck.BLACK},
+    });
+    const builder = ck.ParagraphBuilder.MakeFromFontProvider(style, provider);
+    builder.addText('Base ');
+    builder.pushStyle(new ck.TextStyle({
+      fontFamilies: ['Noto Mono'],
+      fontSize: 18,
+      color: ck.Color(180, 40, 40, 1),
+      baselineShift: 8,
+    }));
+    builder.addText('up');
+    builder.pop();
+    const paragraph = builder.build();
+    paragraph.layout(260);
+    canvas.drawParagraph(paragraph, 500, 90);
+    paragraph.delete();
+    builder.delete();
+    provider.delete();
+  } else if (!ck.ParagraphBuilder) {
+    fail('ParagraphBuilder is missing');
+  }
+
+  if (font) {
+    font.delete();
+  }
+  if (face) {
+    face.delete();
+  }
+  label.delete();
+}
+
+async function main() {
+  if (!navigator.gpu) {
+    statusEl.textContent = 'This browser has no WebGPU.';
+    statusEl.className = 'fail';
+    return;
+  }
+  const ck = await CanvasKitInit({
+    locateFile: (file) => '/out/canvaskit_wasm_webgpu/' + file,
+  });
+  if (!ck.webgpu) {
+    fail('CanvasKit was not built with WebGPU');
+  }
+  const adapter = await navigator.gpu.requestAdapter();
+  if (!adapter) {
+    fail('requestAdapter returned null');
+    statusEl.textContent = failures.join('\n');
+    statusEl.className = 'fail';
+    return;
+  }
+  const device = await adapter.requestDevice();
+  const devCtx = ck.MakeGPUDeviceContext(device);
+  if (!devCtx) {
+    fail('MakeGPUDeviceContext returned null');
+    statusEl.textContent = failures.join('\n');
+    statusEl.className = 'fail';
+    return;
+  }
+  const canvasEl = document.getElementById('gpu');
+  const gpuCanvas = ck.MakeGPUCanvasContext(devCtx, canvasEl);
+  if (!gpuCanvas) {
+    fail('MakeGPUCanvasContext returned null');
+    statusEl.textContent = failures.join('\n');
+    statusEl.className = 'fail';
+    return;
+  }
+  gpuCanvas.requestAnimationFrame((canvas) => {
+    try {
+      draw(ck, canvas);
+    } catch (err) {
+      fail(String(err && err.stack || err));
+    }
+    statusEl.textContent = failures.length
+        ? failures.join('\n')
+        : 'Drew shapes, image, SVG icon, and text.';
+    statusEl.className = failures.length ? 'fail' : '';
+  });
+}
+
+main().catch((err) => {
+  statusEl.textContent = String(err && err.stack || err);
+  statusEl.className = 'fail';
+});
+</script>

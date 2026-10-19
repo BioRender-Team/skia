@@ -9,6 +9,7 @@
 
 #include "include/core/SkTraceMemoryDump.h"
 #include "include/private/SkAlign.h"
+#include "include/private/SkTo.h"
 #include "include/private/SkLog.h"
 #include "src/gpu/graphite/dawn/DawnAsyncWait.h"
 #include "src/gpu/graphite/dawn/DawnSharedContext.h"
@@ -22,40 +23,44 @@ bool is_map_succeeded(WGPUBufferMapAsyncStatus status) {
 
 [[maybe_unused]]
 void log_map_error(WGPUBufferMapAsyncStatus status, const char*) {
-    const char* statusStr;
-    SkLogPriority priority = SkLogPriority::kError;
     switch (status) {
         case WGPUBufferMapAsyncStatus_ValidationError:
-            statusStr = "ValidationError";
+            SKIA_LOG(SkLogPriority::kError,
+                     "Buffer async map failed with status %s.", "ValidationError");
             break;
         case WGPUBufferMapAsyncStatus_Unknown:
-            statusStr = "Unknown";
+            SKIA_LOG(SkLogPriority::kError,
+                     "Buffer async map failed with status %s.", "Unknown");
             break;
         case WGPUBufferMapAsyncStatus_DeviceLost:
-            statusStr = "DeviceLost";
+            SKIA_LOG(SkLogPriority::kError,
+                     "Buffer async map failed with status %s.", "DeviceLost");
             break;
         case WGPUBufferMapAsyncStatus_DestroyedBeforeCallback:
-            statusStr = "DestroyedBeforeCallback";
-            priority = SkLogPriority::kDebug;
+            SKIA_LOG(SkLogPriority::kDebug,
+                     "Buffer async map failed with status %s.", "DestroyedBeforeCallback");
             break;
         case WGPUBufferMapAsyncStatus_UnmappedBeforeCallback:
-            statusStr = "UnmappedBeforeCallback";
-            priority = SkLogPriority::kDebug;
+            SKIA_LOG(SkLogPriority::kDebug,
+                     "Buffer async map failed with status %s.", "UnmappedBeforeCallback");
             break;
         case WGPUBufferMapAsyncStatus_MappingAlreadyPending:
-            statusStr = "MappingAlreadyPending";
+            SKIA_LOG(SkLogPriority::kError,
+                     "Buffer async map failed with status %s.", "MappingAlreadyPending");
             break;
         case WGPUBufferMapAsyncStatus_OffsetOutOfRange:
-            statusStr = "OffsetOutOfRange";
+            SKIA_LOG(SkLogPriority::kError,
+                     "Buffer async map failed with status %s.", "OffsetOutOfRange");
             break;
         case WGPUBufferMapAsyncStatus_SizeOutOfRange:
-            statusStr = "SizeOutOfRange";
+            SKIA_LOG(SkLogPriority::kError,
+                     "Buffer async map failed with status %s.", "SizeOutOfRange");
             break;
         default:
-            statusStr = "<other>";
+            SKIA_LOG(SkLogPriority::kError,
+                     "Buffer async map failed with status %s.", "<other>");
             break;
     }
-    SKIA_LOG(priority, "Buffer async map failed with status %s.", statusStr);
 }
 
 #else
@@ -185,11 +190,12 @@ DawnBuffer::DawnBuffer(const DawnSharedContext* sharedContext,
                  size,
                  Protected::kNo, // Dawn doesn't support protected memory
                  label,
-                 /*reusableRequiresPurgeable=*/buffer.GetUsage() & wgpu::BufferUsage::MapWrite,
+                 /*reusableRequiresPurgeable=*/SkToBool(buffer.GetUsage() &
+                                                              wgpu::BufferUsage::MapWrite),
                  // prepareForReturnToCache only needs to be called for a buffer that is mappable
                  // for writing
-                 /* requiresPrepareForReturnToCache= */
-                 buffer.GetUsage() & wgpu::BufferUsage::MapWrite)
+                 /*requiresPrepareForReturnToCache=*/SkToBool(buffer.GetUsage() &
+                                                              wgpu::BufferUsage::MapWrite))
         , fBuffer(std::move(buffer)) {
     fMapPtr = mappedAtCreationPtr;
     // Update the newly-created underlying GPU object's label to match the Resource's

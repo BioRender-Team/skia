@@ -48,7 +48,12 @@ config("tint_api_config") {
   ]
 
   # The build script produces a static library for tint in the root output directory.
-  libs = [ "$root_out_dir/$_tint_lib_name" ]
+  # CanvasKit uses Emscripten's WebGPU implementation instead of that archive.
+  if (!is_canvaskit) {
+    libs = [ "$root_out_dir/$_tint_lib_name" ]
+  } else {
+    libs = []
+  }
 }
 
 # This version of tint is used by skslc, which is used to compile our sksl tests.
@@ -154,7 +159,9 @@ config("dawn_api_config") {
   } else {
     libs = []
   }
-  libs += [ "$root_out_dir/$_dawn_lib_name" ]
+  if (!is_canvaskit) {
+    libs += [ "$root_out_dir/$_dawn_lib_name" ]
+  }
 
   # https://dawn.googlesource.com/dawn/+/647c352f57aa8a4c2666258455158a36c0c385af/src/dawn/native/BUILD.gn#645
   if (is_mac || is_ios) {
@@ -314,7 +321,10 @@ config("dawn_defines") {
 }
 
 group("dawn") {
-  public_deps = [ ":dawn_cmake" ]
+  # CanvasKit links Emscripten's WebGPU (-sUSE_WEBGPU) rather than Dawn native.
+  if (!is_canvaskit) {
+    public_deps = [ ":dawn_cmake" ]
+  }
 
   public_configs = [ ":dawn_api_config" ]
 

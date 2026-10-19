@@ -295,8 +295,9 @@ void DawnCaps::initCaps(const DawnBackendContext& backendContext, const ContextO
 
 #if defined(__EMSCRIPTEN__)
     wgpu::SupportedLimits supportedLimits;
-    [[maybe_unused]] wgpu::Status status = backendContext.fDevice.GetLimits(&supportedLimits);
-    SkASSERT(status == wgpu::Status::Success);
+    // Emscripten's WebGPU headers return Bool, not wgpu::Status.
+    [[maybe_unused]] wgpu::Bool status = backendContext.fDevice.GetLimits(&supportedLimits);
+    SkASSERT(status);
     wgpu::Limits& limits = supportedLimits.limits;
 #else
     wgpu::CompatibilityModeLimits compatLimits;
@@ -473,10 +474,10 @@ void DawnCaps::initShaderCaps(const wgpu::Device& device) {
     // discussions around enabling it using an extension in the future.
     shaderCaps->fInfinitySupport = false;
 
+#if !defined(__EMSCRIPTEN__)
     if (device.HasFeature(wgpu::FeatureName::DualSourceBlending)) {
         shaderCaps->fDualSourceBlendingSupport = true;
     }
-#if !defined(__EMSCRIPTEN__)
     if (device.HasFeature(wgpu::FeatureName::FramebufferFetch)) {
         shaderCaps->fFBFetchSupport = true;
     }

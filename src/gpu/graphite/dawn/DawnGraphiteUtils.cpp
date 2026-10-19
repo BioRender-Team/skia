@@ -121,12 +121,22 @@ const DawnFormatCapabilityMap& DawnFormatCapabilityMap::Get() {
     using enum DawnFormatFlag;
     using enum wgpu::TextureFormat;
 
-    // Alias some commonly used feature names
+    // Alias some commonly used feature names. Emscripten's WebGPU headers predate
+    // CoreFeaturesAndLimits / texture-format tiers / Float32Blendable. Browser WebGPU is core,
+    // and the missing tiers are treated as unavailable.
     using F = wgpu::FeatureName;
     static constexpr std::optional<F> Compat = std::nullopt; // The baseline
+#if defined(__EMSCRIPTEN__)
+    static constexpr std::optional<F> Core = std::nullopt;
+    static constexpr std::optional<F> Tier1 = F::Undefined;
+    static constexpr std::optional<F> Tier2 = F::Undefined;
+    static constexpr F Float32Blendable = F::Undefined;
+#else
     static constexpr F Core = F::CoreFeaturesAndLimits;
     static constexpr F Tier1 = F::TextureFormatsTier1;
     static constexpr F Tier2 = F::TextureFormatsTier2;
+    static constexpr F Float32Blendable = F::Float32Blendable;
+#endif
 
     // To read this table with the HTML table in the links below, each format corresponds to a row
     // in the original document. For a format, the first extension listed is the "Required feature"
@@ -192,10 +202,12 @@ const DawnFormatCapabilityMap& DawnFormatCapabilityMap::Get() {
 
         {BGRA8UnormSrgb, {Core   >> Filter | Render | Blend | MSAA | Resolve}},
 
-        // 16 bits per component
+#if !defined(__EMSCRIPTEN__)
+        // 16-bit unorm/snorm formats are not in Emscripten's WebGPU headers.
         {R16Unorm,       {Tier1  >> Render | Blend | MSAA | WriteOnly | ReadOnly}},
 
         {R16Snorm,       {Tier1  >> Render | Blend | MSAA | WriteOnly | ReadOnly}},
+#endif
 
         {R16Uint,        {Compat >> Render,
                           Core   >> MSAA,
@@ -211,9 +223,11 @@ const DawnFormatCapabilityMap& DawnFormatCapabilityMap::Get() {
                           Tier1  >> WriteOnly | ReadOnly,
                           Tier2  >> ReadWrite}},
 
+#if !defined(__EMSCRIPTEN__)
         {RG16Unorm,      {Tier1 >> Render | Blend | MSAA | WriteOnly | ReadOnly}},
 
         {RG16Snorm,      {Tier1 >> Render | Blend | MSAA | WriteOnly | ReadOnly}},
+#endif
 
         {RG16Uint,       {Compat >> Render,
                           Core   >> MSAA,
@@ -226,9 +240,11 @@ const DawnFormatCapabilityMap& DawnFormatCapabilityMap::Get() {
         {RG16Float,      {Compat >> Filter | Render | Blend | MSAA | Resolve,
                           Tier1  >> WriteOnly | ReadOnly}},
 
+#if !defined(__EMSCRIPTEN__)
         {RGBA16Unorm,    {Tier1  >> Render | Blend | MSAA | WriteOnly | ReadOnly}},
 
         {RGBA16Snorm,    {Tier1  >> Render | Blend | MSAA | WriteOnly | ReadOnly}},
+#endif
 
         {RGBA16Uint,     {Compat >> Render | WriteOnly | ReadOnly,
                           Core   >> MSAA,
@@ -250,7 +266,7 @@ const DawnFormatCapabilityMap& DawnFormatCapabilityMap::Get() {
         {R32Float,       {Compat >> Render | WriteOnly | ReadOnly | ReadWrite,
                           Core   >> MSAA,
                           F::Float32Filterable >> Filter,
-                          F::Float32Blendable  >> Blend}},
+                          Float32Blendable  >> Blend}},
 
         {RG32Uint,       {Compat >> Render,
                           Core   >> WriteOnly | ReadOnly}},
@@ -261,7 +277,7 @@ const DawnFormatCapabilityMap& DawnFormatCapabilityMap::Get() {
         {RG32Float,      {Compat >> Render,
                           Core   >> WriteOnly | ReadOnly,
                           F::Float32Filterable >> Filter,
-                          F::Float32Blendable  >>  Blend}},
+                          Float32Blendable  >>  Blend}},
 
         {RGBA32Uint,     {Compat >> Render | WriteOnly | ReadOnly,
                           Tier2  >> ReadWrite}},
@@ -272,7 +288,7 @@ const DawnFormatCapabilityMap& DawnFormatCapabilityMap::Get() {
         {RGBA32Float,    {Compat >> Render|  WriteOnly | ReadOnly,
                           Tier2  >> ReadWrite,
                           F::Float32Filterable >> Filter,
-                          F::Float32Blendable  >> Blend}},
+                          Float32Blendable  >> Blend}},
 
         // mixed component width, 32 bits per texel
         {RGB10A2Uint,    {Compat >> Render,
@@ -336,12 +352,10 @@ SkEnumBitMask<DawnFormatFlag> DawnTextureFormatSupport(wgpu::Device device,
 
 #define DAWN_FORMAT_MAPPING(M) \
         M(TextureFormat::kR8,             wgpu::TextureFormat::R8Unorm)                     \
-        M(TextureFormat::kR16,            wgpu::TextureFormat::R16Unorm)                    \
         M(TextureFormat::kR16F,           wgpu::TextureFormat::R16Float)                    \
         M(TextureFormat::kR32F,           wgpu::TextureFormat::R32Float)                    \
         /*TextureFormat::kA8,             unsupported */                                    \
         M(TextureFormat::kRG8,            wgpu::TextureFormat::RG8Unorm)                    \
-        M(TextureFormat::kRG16,           wgpu::TextureFormat::RG16Unorm)                   \
         M(TextureFormat::kRG16F,          wgpu::TextureFormat::RG16Float)                   \
         M(TextureFormat::kRG32F,          wgpu::TextureFormat::RG32Float)                   \
         /*TextureFormat::kRGB8,           unsupported */                                    \
@@ -354,7 +368,6 @@ SkEnumBitMask<DawnFormatFlag> DawnTextureFormatSupport(wgpu::Device device,
         /*TextureFormat::kRGB8_sRGB,      unsupported */                                    \
         /*TextureFormat::kBGR10_XR,       unsupported */                                    \
         M(TextureFormat::kRGBA8,          wgpu::TextureFormat::RGBA8Unorm)                  \
-        M(TextureFormat::kRGBA16,         wgpu::TextureFormat::RGBA16Unorm)                 \
         M(TextureFormat::kRGBA16F,        wgpu::TextureFormat::RGBA16Float)                 \
         M(TextureFormat::kRGBA32F,        wgpu::TextureFormat::RGBA32Float)                 \
         M(TextureFormat::kRGB10_A2,       wgpu::TextureFormat::RGB10A2Unorm)                \
@@ -388,6 +401,10 @@ SkEnumBitMask<DawnFormatFlag> DawnTextureFormatSupport(wgpu::Device device,
         M(TextureFormat::kD32F_S8,        wgpu::TextureFormat::Depth32FloatStencil8)        \
 
 #if !defined(__EMSCRIPTEN__)
+#define DAWN_FORMAT_MAPPING_UNORM16(M) \
+        M(TextureFormat::kR16,            wgpu::TextureFormat::R16Unorm)                    \
+        M(TextureFormat::kRG16,           wgpu::TextureFormat::RG16Unorm)                   \
+        M(TextureFormat::kRGBA16,         wgpu::TextureFormat::RGBA16Unorm)
 #define DAWN_FORMAT_MAPPING_NATIVE_ONLY(M) \
         M(TextureFormat::kYUV8_P2_420,    wgpu::TextureFormat::R8BG8Biplanar420Unorm)       \
         M(TextureFormat::kYUV10x6_P2_420, wgpu::TextureFormat::R10X6BG10X6Biplanar420Unorm) \
@@ -397,6 +414,7 @@ SkEnumBitMask<DawnFormatFlag> DawnTextureFormatSupport(wgpu::Device device,
         M(TextureFormat::kYUV10x6_P2_444, wgpu::TextureFormat::R10X6BG10X6Biplanar444Unorm) \
         M(TextureFormat::kExternal,       wgpu::TextureFormat::OpaqueYCbCrAndroid)
 #else
+#define DAWN_FORMAT_MAPPING_UNORM16(M)
 #define DAWN_FORMAT_MAPPING_NATIVE_ONLY(M)
 #endif
 
@@ -404,6 +422,7 @@ TextureFormat DawnFormatToTextureFormat(wgpu::TextureFormat format) {
 #define M(TF, WGPU) case WGPU: return TF;
     switch(format) {
         DAWN_FORMAT_MAPPING(M)
+        DAWN_FORMAT_MAPPING_UNORM16(M)
         DAWN_FORMAT_MAPPING_NATIVE_ONLY(M)
         default: return TextureFormat::kUnsupported;
     }
@@ -413,6 +432,7 @@ wgpu::TextureFormat TextureFormatToDawnFormat(TextureFormat format) {
 #define M(TF, WGPU) case TF: return WGPU;
     switch(format) {
         DAWN_FORMAT_MAPPING(M)
+        DAWN_FORMAT_MAPPING_UNORM16(M)
         DAWN_FORMAT_MAPPING_NATIVE_ONLY(M)
         default: return wgpu::TextureFormat::Undefined;
     }
